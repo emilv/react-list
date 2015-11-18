@@ -30,6 +30,7 @@ export default class extends Component {
     itemsRenderer: PropTypes.func,
     length: PropTypes.number,
     pageSize: PropTypes.number,
+    scrollParentGetter: PropTypes.func,
     threshold: PropTypes.number,
     type: PropTypes.oneOf(['simple', 'variable', 'uniform']),
     useTranslate3d: PropTypes.bool
@@ -43,6 +44,7 @@ export default class extends Component {
     itemsRenderer: (items, ref) => <div ref={ref}>{items}</div>,
     length: 0,
     pageSize: 10,
+    scrollParentGetter: null,
     threshold: 100,
     type: 'simple',
     useTranslate3d: false
@@ -67,10 +69,8 @@ export default class extends Component {
   }
 
   componentDidMount() {
-    this.scrollParent = this.getScrollParent();
     this.updateFrame = this.updateFrame.bind(this);
     window.addEventListener('resize', this.updateFrame);
-    this.scrollParent.addEventListener('scroll', this.updateFrame);
     this.updateFrame();
     const {initialIndex} = this.props;
     if (initialIndex == null) return;
@@ -100,8 +100,10 @@ export default class extends Component {
   }
 
   getScrollParent() {
+    const {axis, scrollParentGetter} = this.props;
+    if (scrollParentGetter) return scrollParentGetter();
     let el = findDOMNode(this);
-    const overflowKey = OVERFLOW_KEYS[this.props.axis];
+    const overflowKey = OVERFLOW_KEYS[axis];
     while (el = el.parentElement) {
       switch (window.getComputedStyle(el)[overflowKey]) {
       case 'auto': case 'scroll': case 'overlay': return el;
@@ -177,11 +179,20 @@ export default class extends Component {
   }
 
   updateFrame() {
+    this.updateScrollParent();
     switch (this.props.type) {
     case 'simple': return this.updateSimpleFrame();
     case 'variable': return this.updateVariableFrame();
     case 'uniform': return this.updateUniformFrame();
     }
+  }
+
+  updateScrollParent() {
+    const prev = this.scrollParent;
+    this.scrollParent = this.getScrollParent();
+    if (prev === this.scrollParent) return;
+    if (prev) prev.removeEventListener('scroll', this.updateFrame);
+    this.scrollParent.addEventListener('scroll', this.updateFrame);
   }
 
   updateSimpleFrame() {
